@@ -4,14 +4,16 @@ import cors from "cors";
 import 'dotenv/config';
 
 const app = express();
-import cors from "cors";
+
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "https://api-music-app-amber.vercel.app";
 app.use(cors({
-  origin: "https://api-music-app-amber.vercel.app/"
+  origin: FRONTEND_ORIGIN,
+  methods: ["GET", "POST"]
 }));
+
 app.use(bodyParser.json());
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
-
 console.log("Groq API key loaded:", GROQ_API_KEY ? "Yes" : "No");
 
 async function queryGroq(prompt) {
@@ -22,12 +24,7 @@ async function queryGroq(prompt) {
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      messages: [
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
+      messages: [{ role: "user", content: prompt }],
       model: "llama3-8b-8192",
       temperature: 0.8,
       max_tokens: 1000
@@ -37,7 +34,6 @@ async function queryGroq(prompt) {
   return await response.json();
 }
 
-// Enhanced fallback function
 function generateSmartPlaylist(mood, genre) {
   const songDatabase = {
     chill: {
@@ -120,24 +116,22 @@ function generateSmartPlaylist(mood, genre) {
     }
   };
 
-  const moodKey = mood.toLowerCase();
-  const genreKey = genre.toLowerCase();
+  const moodKey = (mood || "").toLowerCase();
+  const genreKey = (genre || "").toLowerCase();
   
   let songs = songDatabase[moodKey]?.[genreKey] || [];
   
-  // If no exact match, get songs from the mood category
   if (songs.length === 0 && songDatabase[moodKey]) {
     const allMoodSongs = Object.values(songDatabase[moodKey]).flat();
     songs = allMoodSongs.slice(0, 5);
   }
   
-  // If still no songs, create generic ones
   if (songs.length === 0) {
     for (let i = 0; i < 5; i++) {
       songs.push({
-        title: `${genre.charAt(0).toUpperCase() + genre.slice(1)} Track ${i + 1}`,
+        title: `${(genre || "Track").charAt(0).toUpperCase() + (genre || "Track").slice(1)} Track ${i + 1}`,
         artist: "Various Artists",
-        description: `A ${mood} ${genre} song perfect for your mood`
+        description: `A ${mood || "calm"} ${genre || "song"} perfect for your mood`
       });
     }
   }
@@ -145,32 +139,31 @@ function generateSmartPlaylist(mood, genre) {
   return songs.slice(0, 5);
 }
 
+// Playlist endpoint
 app.post("/playlist", async (req, res) => {
-  const { mood, genre } = req.body;
+  const { mood = "chill", genre = "lofi" } = req.body || {};
 
   try {
-    // Try Groq API first (if you have API key)
     if (GROQ_API_KEY) {
-      const prompt = `Generate a JSON array of exactly 5 ${genre} songs that match a ${mood} mood. 
-      
-      Use this EXACT format:
-      [
-        {"title": "Song Name", "artist": "Artist Name", "description": "Brief description"},
-        {"title": "Song Name", "artist": "Artist Name", "description": "Brief description"},
-        {"title": "Song Name", "artist": "Artist Name", "description": "Brief description"},
-        {"title": "Song Name", "artist": "Artist Name", "description": "Brief description"},
-        {"title": "Song Name", "artist": "Artist Name", "description": "Brief description"}
-      ]
-      
-      Return ONLY the JSON array, nothing else.`;
-      
+      const prompt = `Generate a JSON array of exactly 5 ${genre} songs that match a ${mood} mood.
+
+Use this EXACT format:
+[
+  {"title": "Song Name", "artist": "Artist Name", "description": "Brief description"},
+  {"title": "Song Name", "artist": "Artist Name", "description": "Brief description"},
+  {"title": "Song Name", "artist": "Artist Name", "description": "Brief description"},
+  {"title": "Song Name", "artist": "Artist Name", "description": "Brief description"},
+  {"title": "Song Name", "artist": "Artist Name", "description": "Brief description"}
+]
+
+Return ONLY the JSON array, nothing else.`;
+
       console.log("Trying Groq API...");
       const groqResponse = await queryGroq(prompt);
-      
-      if (groqResponse.choices && groqResponse.choices[0]) {
+
+      if (groqResponse?.choices?.[0]?.message?.content) {
         try {
           const content = groqResponse.choices[0].message.content.trim();
-          // Try to extract JSON from the response
           const jsonMatch = content.match(/\[[\s\S]*\]/);
           if (jsonMatch) {
             const playlist = JSON.parse(jsonMatch[0]);
@@ -183,17 +176,17 @@ app.post("/playlist", async (req, res) => {
       }
     }
 
-    // Fallback to smart generated playlist
+    // Fallback to curated playlist
     console.log(`Using curated playlist for ${mood} ${genre}`);
     const playlist = generateSmartPlaylist(mood, genre);
     res.json(playlist);
 
   } catch (error) {
-    console.error("Error:", error.message);
-    // Always fallback to generated playlist
-    const playlist = generateSmartPlaylist(mood, genre);
-    res.json(playlist);
+    console.error("Error:", error?.message || error);
+    res.json(generateSmartPlaylist(mood, genre));
   }
 });
 
-app.listen(5000, () => console.log("Server running on port 5000"));
+// Use Render/Heroku/ENV port or fallback to 5000 for local dev
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
