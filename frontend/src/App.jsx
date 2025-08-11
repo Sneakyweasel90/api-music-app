@@ -14,7 +14,7 @@ function App() {
     
     setLoading(true);
     try {
-      const API_BASE = import.meta.env.VITE_API_URL || "https://api-music-app-30ic.onrender.com/";
+      const API_BASE = import.meta.env.VITE_API_URL || "https://api-music-app-30ic.onrender.com";
       const res = await fetch(`${API_BASE}/playlist`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
