@@ -14,7 +14,7 @@ function App() {
     
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:5000/playlist", {
+      const res = await fetch("https://ai-music-backend.vercel.app/playlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mood, genre })

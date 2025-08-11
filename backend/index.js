@@ -4,7 +4,10 @@ import cors from "cors";
 import 'dotenv/config';
 
 const app = express();
-app.use(cors());
+import cors from "cors";
+app.use(cors({
+  origin: "https://api-music-app-amber.vercel.app/"
+}));
 app.use(bodyParser.json());
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
